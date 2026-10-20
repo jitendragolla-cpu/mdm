@@ -394,6 +394,8 @@ Promise.resolve(window.MDM_DATA).then(init).catch(e=>{
 
 function init(j){
   DATA=j;
+  // depots with no mapped schools (incl. the "DEPOT Test" entry) carry no allotment; keep them out of the lists
+  j.D.forEach(d=>{d[5]=d[5].filter(p=>p[5].length);});
   const per=MONTHS[j.month]+" "+j.year;
   $("period").innerHTML=`<small>${j.ro} RO</small>${per}`;
   $("fetched").textContent=`Data taken ${new Date(j.fetched).toLocaleString("en-IN",{dateStyle:"medium",timeStyle:"short"})} IST.`;
@@ -431,11 +433,19 @@ $("udise").addEventListener("input",e=>{e.target.value=e.target.value.replace(/\
 $("pick").addEventListener("submit",e=>{e.preventDefault();goUdise($("udise").value);});
 $("reset").addEventListener("click",()=>{state={d:null,p:null,s:null};$("dist").value="";fillDep();fillSch();$("udise").value="";$("err").textContent="";render();});
 
+// a failed lookup must not leave the previous school's card on screen under the error
+function udiseFail(msg){
+  state={d:null,p:null,s:null};$("dist").value="";fillDep();fillSch();
+  $("ticket").innerHTML=`<div class="empty">No result to show. Check the UDISE code, pick a district above, or tap State view.</div>`;
+  $("ledger").innerHTML="";
+  $("err").textContent=msg;
+}
+
 function goUdise(code){
   if(!DATA)return;
-  if(!/^\d{11}$/.test(code)){$("err").textContent="Enter all 11 digits of the UDISE code.";return;}
+  if(!/^\d{11}$/.test(code)){udiseFail("Enter all 11 digits of the UDISE code.");return;}
   const ix=IDX[code];
-  if(!ix){$("err").textContent=`UDISE ${code} has no ${MONTHS[DATA.month]} allotment in SCM. Check the code, or the school may not be mapped for door delivery.`;return;}
+  if(!ix){udiseFail(`UDISE ${code} has no ${MONTHS[DATA.month]} allotment in SCM. Check the code, or the school may not be mapped for door delivery.`);return;}
   $("err").textContent="";
   state={d:ix[0],p:ix[1],s:ix[2]};$("dist").value=ix[0];fillDep();$("dep").value=ix[1];fillSch();$("sch").value=ix[2];render();
 }
@@ -450,6 +460,7 @@ function sacks(q){
 
 function render(){
   if(!DATA)return;
+  $("err").textContent="";
   const per=MONTHS[DATA.month]+" "+DATA.year;
   const D=DATA.D;
   let lvl,title,crumbs,meta,q,share,rows,cols,ledgerTitle;
